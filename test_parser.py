@@ -488,3 +488,134 @@ def test_segwit_trailing_bytes():
 
     with pytest.raises(ValueError, match="trailing"):
         parse_segwit_transaction(raw)
+
+
+
+
+from script import base58check_encode
+
+
+def test_base58check_known_address():
+    payload = bytes.fromhex(
+        "010966776006953d5567439e5e39f86a0d273bee"
+    )
+
+    address = base58check_encode(b"\x00", payload)
+
+    assert address == "16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM"
+
+
+def test_base58check_leading_zero():
+    payload = b"\x00" * 20
+
+    address = base58check_encode(b"\x00", payload)
+
+    assert address == "1111111111111111111114oLvT2"
+
+
+
+
+from script import legacy_address
+
+
+def test_p2pkh_address():
+    script = (
+        "76a914"
+        "010966776006953d5567439e5e39f86a0d273bee"
+        "88ac"
+    )
+
+    assert legacy_address(script) == (
+        "16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM"
+    )
+
+
+def test_p2sh_address():
+    script = "a914" + "00" * 20 + "87"
+
+    address = legacy_address(script)
+
+    assert address is not None
+    assert address.startswith("3")
+
+
+def test_nulldata_has_no_address():
+    script = "6a0548656c6c6f"
+
+    assert legacy_address(script) is None
+
+
+
+
+
+from script import bech32_encode
+
+
+def test_bech32_known_vector():
+    program = bytes.fromhex(
+        "751e76e8199196d454941c45d1b3a323f1433bd6"
+    )
+
+    assert bech32_encode("bc", 0, program) == (
+        "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+    )
+
+
+def test_regtest_p2wpkh_address():
+    program = bytes.fromhex("11" * 20)
+
+    address = bech32_encode("bcrt", 0, program)
+
+    assert address.startswith("bcrt1q")
+
+
+def test_regtest_taproot_address():
+    program = bytes.fromhex("22" * 32)
+
+    address = bech32_encode("bcrt", 1, program)
+
+    assert address.startswith("bcrt1p")
+
+
+
+
+
+from script import address_for_output
+
+
+def test_genesis_address():
+    tx = parse_legacy_transaction(GENESIS_COINBASE)
+
+    script_hex = tx["outputs"][0]["scriptPubKey"]
+
+    assert address_for_output(script_hex, "mainnet") == (
+        "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    )
+
+
+def test_part_b_destination_address():
+    tx = parse_segwit_transaction(
+        get_part_b_transaction()
+    )
+
+    script_hex = tx["outputs"][0]["scriptPubKey"]
+
+    assert address_for_output(script_hex) == (
+        "bcrt1qfqahxssn8n5navt5p6n5m9svpvqkpy4spk3v90"
+    )
+
+
+def test_part_b_change_address():
+    tx = parse_segwit_transaction(
+        get_part_b_transaction()
+    )
+
+    script_hex = tx["outputs"][1]["scriptPubKey"]
+
+    assert address_for_output(script_hex) == (
+        "bcrt1qgdcvl096r4xjwp9s8ukkqkk9sm2j3j9ry33ymd"
+    )
+
+
+def test_nulldata_output_no_address():
+    assert address_for_output("6a0548656c6c6f") is None

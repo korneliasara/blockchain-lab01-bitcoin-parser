@@ -10,7 +10,11 @@ from parser import (
     parse_legacy_transaction,
     parse_segwit_transaction,
 )
-from script import classify_output, disassemble_script
+from script import (
+    address_for_output,
+    classify_output,
+    disassemble_script,
+)
 
 
 def main():
@@ -20,7 +24,7 @@ def main():
 
     arg_parser.add_argument(
         "transaction",
-        help="Raw transaction hex, or a path to a text file"
+        help="Raw transaction hex or path to a text file"
     )
 
     args = arg_parser.parse_args()
@@ -45,11 +49,17 @@ def main():
         tx["wtxid"] = tx["txid"]
         tx["size"] = len(bytes.fromhex(raw_hex))
 
+    # Add classification, script instructions,
+    # and Bitcoin addresses for each output.
     for output in tx["outputs"]:
         script_hex = output["scriptPubKey"]
 
         output["type"] = classify_output(script_hex)
         output["asm"] = disassemble_script(script_hex)
+        output["address"] = address_for_output(
+            script_hex,
+            network="regtest"
+        )
 
     print(json.dumps(tx, indent=2))
 
